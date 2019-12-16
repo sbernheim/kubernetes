@@ -160,12 +160,13 @@ var (
 			Buckets:   prometheus.DefBuckets,
 		},
 	)
+	// PLEGLastSeen is a Gauge that tracks the interval (in seconds) since the Kubelet's
+	// Pod Lifecycle Event Generator (PLEG) was last seen active.
 	PLEGLastSeen = prometheus.NewGauge(
-		prometheus.GagueOpts{
+		prometheus.GaugeOpts{
 			Subsystem: KubeletSubsystem,
 			Name:      PLEGLastSeenKey,
 			Help:      "Time in seconds since PLEG was last seen active.",
-			Buckets:   prometheus.DefBuckets,
 		},
 	)
 	// Metrics of remote runtime operations.
