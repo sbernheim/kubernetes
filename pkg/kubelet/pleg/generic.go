@@ -420,7 +420,8 @@ func (g *GenericPLEG) updateCache(pod *kubecontainer.Pod, pid types.UID) error {
 	// TODO - Possible metric for time spent retrieving pod status
 	klog.V(10).Infof("PLEG: GetPodStatus for pod [%d] %s/%s", pod.ID, pod.Name, pod.Namespace)
 	status, err := g.runtime.GetPodStatus(pod.ID, pod.Name, pod.Namespace)
-	klog.V(10).Infof("PLEG: GetPodStatus for pod [%d] %s/%s time %d", pod.ID, pod.Name, pod.Namespace)
+	klog.V(10).Infof("PLEG: GetPodStatus for pod [%d] %s/%s", pod.ID, pod.Name, pod.Namespace)
+	// klog.V(10).Infof("PLEG: GetPodStatus for pod [%d] %s/%s time %d", pod.ID, pod.Name, pod.Namespace)
 	klog.V(4).Infof("PLEG: Write status for %s/%s: %#v (err: %v)", pod.Name, pod.Namespace, status, err)
 	if err == nil {
 		// Preserve the pod IP across cache updates if the new IP is empty.
