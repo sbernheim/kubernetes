@@ -206,11 +206,11 @@ func (g *GenericPLEG) relist() {
 		klog.Errorf("GenericPLEG: Unable to retrieve pods: %v", err)
 		return
 	}
-	klog.V(8).Infof("GenericPLEG: containerRuntimeGetPods retrieved %d pods", len(podList))
+	klog.V(5).Infof("GenericPLEG: containerRuntimeGetPods retrieved %d pods", len(podList))
 
 	g.updateRelistTime(timestamp)
 
-	klog.V(10).Infof("GenericPLEG: relist time updated %d", timestamp)
+	klog.V(5).Infof("GenericPLEG: relist time updated %s", timestamp.Format("Jan 2 15:04:05 -0700 MST"))
 
 	pods := kubecontainer.Pods(podList)
 	g.podRecords.setCurrent(pods)
@@ -222,22 +222,22 @@ func (g *GenericPLEG) relist() {
 	for pid := range g.podRecords {
 		oldPod := g.podRecords.getOld(pid)
 		pod := g.podRecords.getCurrent(pid)
-		klog.V(9).Infof("GenericPLEG: for pid %d comparing old %d to new %d", pid, oldPod, pod)
+		klog.V(5).Infof("GenericPLEG: for pid %s comparing old %v to new %v", pid, oldPod, pod)
 		// Get all containers in the old and the new pod.
 		// TODO - investigate getContainersFromPods function
 		allContainers := getContainersFromPods(oldPod, pod)
-		klog.V(9).Infof("GenericPLEG: for pid %d retrieved %d containers", pid, len(allContainers) )
+		klog.V(5).Infof("GenericPLEG: for pid %s retrieved %d containers", pid, len(allContainers) )
 		for _, container := range allContainers {
 			// TODO - investigate computeEvents function
 			events := computeEvents(oldPod, pod, &container.ID)
-			klog.V(9).Infof("GenericPLE: for pid %d container %d computed %d events", pid, &container.ID, len(events))
+			klog.V(5).Infof("GenericPLEG: for pid %s container %v computed %d events", pid, container.ID.ID, len(events))
 			eventCount += len(events)
 			for _, e := range events {
 				updateEvents(eventsByPodID, e)
 			}
 		}
 	}
-	klog.V(8).Infof("GenericPLEG: relist computed %d container events", eventCount)
+	klog.V(5).Infof("GenericPLEG: relist computed %d container events", eventCount)
 
 	var needsReinspection map[types.UID]*kubecontainer.Pod
 	if g.cacheEnabled() {
@@ -262,7 +262,7 @@ func (g *GenericPLEG) relist() {
 			// TODO - investigate updateCache function
 			if err := g.updateCache(pod, pid); err != nil {
 				// Rely on updateCache calling GetPodStatus to log the actual error.
-				klog.V(4).Infof("PLEG: Ignoring events for pod %s/%s: %v", pod.Name, pod.Namespace, err)
+				klog.V(4).Infof("PLEG: Ignoring events for pod %s %v: %v", pid, pod, err)
 
 				// make sure we try to reinspect the pod during the next relisting
 				needsReinspection[pid] = pod
@@ -272,13 +272,13 @@ func (g *GenericPLEG) relist() {
 				// this pod was in the list to reinspect and we did so because it had events, so remove it
 				// from the list (we don't want the reinspection code below to inspect it a second time in
 				// this relist execution)
-				klog.V(9).Infof("PLEG: Removing pod %s/%s from podsToReinspect", pod.Name, pod.Namespace)
+				klog.V(5).Infof("PLEG: Removing pod %s %v from podsToReinspect", pid, pod)
 				delete(g.podsToReinspect, pid)
 			}
 		}
 		// Update the internal storage and send out the events.
 		g.podRecords.update(pid)
-		klog.V(9).Infof("GenericPLEG: examining %d events for pod %d %s/%s", len(events), pid, pod.Name, pod.Namespace)
+		klog.V(5).Infof("GenericPLEG: examining %d events for pod %s %v", len(events), pid, pod.Name, pod.Namespace)
 		for i := range events {
 			// Filter out events that are not reliable and no other components use yet.
 			if events[i].Type == ContainerChanged {
@@ -295,18 +295,18 @@ func (g *GenericPLEG) relist() {
 		}
 	}
 
-	klog.V(9).Infof("GenericPLEG: %d new pods need reinspection", len(needsReinspection))
+	klog.V(5).Infof("GenericPLEG: %d new pods need reinspection", len(needsReinspection))
 
 	if g.cacheEnabled() {
 		// reinspect any pods that failed inspection during the previous relist
 		if len(g.podsToReinspect) > 0 {
 			klog.V(5).Infof("GenericPLEG: Reinspecting %d pods that previously failed inspection", len(g.podsToReinspect))
 			for pid, pod := range g.podsToReinspect {
-				klog.V(9).Infof("GenericPLEG: Reinspecting pod %d %s/%s", pid, pod.Name, pod.Namespace)
+				klog.V(5).Infof("GenericPLEG: Reinspecting pod %s %v", pid, pod)
 				// TODO - investigate updateCache
 				if err := g.updateCache(pod, pid); err != nil {
 					// Rely on updateCache calling GetPodStatus to log the actual error.
-					klog.V(5).Infof("PLEG: pod %s/%s failed reinspection: %v", pod.Name, pod.Namespace, err)
+					klog.V(5).Infof("PLEG: pod %s %v failed reinspection: %v", pid, pod, err)
 					needsReinspection[pid] = pod
 				}
 			}
@@ -315,12 +315,12 @@ func (g *GenericPLEG) relist() {
 		// Update the cache timestamp.  This needs to happen *after*
 		// all pods have been properly updated in the cache.
 		g.cache.UpdateTime(timestamp)
-		klog.V(10).Infof("GenericPLEG: cache timestamp updated to %d", timestamp)
+		klog.V(5).Infof("GenericPLEG: cache timestamp updated to %s", timestamp.Format("Jan 2 15:04:05 -0700 MST"))
 	}
 
 	// make sure we retain the list of pods that need reinspecting the next time relist is called
 	g.podsToReinspect = needsReinspection
-	klog.V(8).Infof("GenericPLEG: caching %d pods for reinspection", len(needsReinspection))
+	klog.V(5).Infof("GenericPLEG: caching %d pods for reinspection", len(needsReinspection))
 }
 
 func getContainersFromPods(pods ...*kubecontainer.Pod) []*kubecontainer.Container {
@@ -418,9 +418,10 @@ func (g *GenericPLEG) updateCache(pod *kubecontainer.Pod, pid types.UID) error {
 	// all containers again.
 	// TODO: Tag for further investigation
 	// TODO - Possible metric for time spent retrieving pod status
-	klog.V(10).Infof("PLEG: GetPodStatus for pod [%d] %s/%s", pod.ID, pod.Name, pod.Namespace)
+
+	klog.V(5).Infof("PLEG: GetPodStatus for pod [%s] %s/%s", pod.ID, pod.Name, pod.Namespace)
 	status, err := g.runtime.GetPodStatus(pod.ID, pod.Name, pod.Namespace)
-	klog.V(10).Infof("PLEG: GetPodStatus for pod [%d] %s/%s", pod.ID, pod.Name, pod.Namespace)
+	klog.V(5).Infof("PLEG: GetPodStatus for pod [%s] %s/%s", pod.ID, pod.Name, pod.Namespace)
 	// klog.V(10).Infof("PLEG: GetPodStatus for pod [%d] %s/%s time %d", pod.ID, pod.Name, pod.Namespace)
 	klog.V(4).Infof("PLEG: Write status for %s/%s: %#v (err: %v)", pod.Name, pod.Namespace, status, err)
 	if err == nil {
